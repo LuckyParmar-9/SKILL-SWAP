@@ -8,7 +8,7 @@ const conversationId = (a, b) => [String(a), String(b)].sort().join("_");
 // In-memory map of userId -> partnerUserId for users currently on a call, so we
 // can notify the other side if someone disconnects mid-call (tab closed, etc).
 // This is signaling-only bookkeeping; the actual audio/video never touches the
-// server — it flows peer-to-peer between the two browsers via WebRTC.
+// server — it flows through Daily.co's infrastructure, not through Socket.io.
 const activeCalls = new Map();
 
 const initSockets = (io) => {
@@ -40,8 +40,6 @@ const initSockets = (io) => {
         content,
       });
 
-      // Include the sender's display name so the receiver's global "new message"
-      // toast (shown on any page, not just the Messages screen) can show who it's from.
       const senderUser = await User.findById(socket.userId).select("name");
       const payload = { ...message.toObject(), senderName: senderUser?.name || "Someone" };
 
@@ -62,17 +60,20 @@ const initSockets = (io) => {
     });
 
     // --- Voice/video call signaling (ring / accept / reject only) --------
-    // The actual audio/video connection is Daily.co's job now (see routes/calls.js
-    // and CallModal.jsx) — the server here only relays "someone is calling you"
-    // and the Daily room URL to join, never any call media itself.
+    // The actual audio/video connection is Daily.co's job (see routes/calls.js
+    // and CallModal.jsx). The server only relays "someone is calling you" plus
+    // which room to join — it never sees or relays anyone's personal meeting
+    // token. Each side fetches its own token from the backend using its own
+    // login, so a leaked/relayed signaling message alone can't get anyone in.
 
     // Caller -> callee: "someone is calling you, here's the room to join"
-    socket.on("call:invite", ({ toUserId, callType, fromName, roomUrl }) => {
+    socket.on("call:invite", ({ toUserId, callType, fromName, roomUrl, roomName }) => {
       io.to(`user_${toUserId}`).emit("call:incoming", {
         fromUserId: socket.userId,
         fromName,
         callType, // "audio" | "video"
         roomUrl,
+        roomName,
       });
     });
 
@@ -102,8 +103,6 @@ const initSockets = (io) => {
 
     socket.on("disconnect", () => {
       console.log(`Socket disconnected: user_${socket.userId}`);
-      // If this user dropped mid-call (closed tab, lost connection), tell their
-      // partner so the partner's UI doesn't hang waiting for a call that's over.
       const partnerId = activeCalls.get(socket.userId);
       if (partnerId) {
         io.to(`user_${partnerId}`).emit("call:ended", { fromUserId: socket.userId });

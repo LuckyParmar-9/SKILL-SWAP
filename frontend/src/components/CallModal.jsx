@@ -3,23 +3,24 @@ import DailyIframe from "@daily-co/daily-js";
 import { useCall } from "../context/CallContext";
 
 const CallModal = () => {
-  const { callState, callType, partner, roomUrl, error, acceptCall, rejectCall, cancelOutgoing, endCall } = useCall();
+  const { callState, callType, partner, roomUrl, token, error, acceptCall, rejectCall, cancelOutgoing, endCall } =
+    useCall();
   const containerRef = useRef(null);
   const callFrameRef = useRef(null);
 
-  // Once both sides have accepted (callState === "active"), embed Daily's own
-  // call screen pointed at the room the backend created. Daily's UI already
-  // includes mute/camera/leave controls, so we don't build our own.
+  // Once both sides have accepted (callState === "active") AND we have our
+  // own personal token, embed Daily's call screen and join with that token.
+  // The token — not just the URL — is what the private room checks, so this
+  // is the point where caller and callee actually connect directly.
   useEffect(() => {
-    if (callState !== "active" || !roomUrl || !containerRef.current) return;
+    if (callState !== "active" || !roomUrl || !token || !containerRef.current) return;
 
     const callFrame = DailyIframe.createFrame(containerRef.current, {
-      url: roomUrl,
       showLeaveButton: true,
       iframeStyle: { width: "100%", height: "100%", border: "0", borderRadius: "12px" },
     });
     callFrameRef.current = callFrame;
-    callFrame.join({ startVideoOff: callType === "audio" });
+    callFrame.join({ url: roomUrl, token, startVideoOff: callType === "audio" });
 
     // Fires when the local user clicks Daily's own "Leave" button
     callFrame.on("left-meeting", () => endCall());
@@ -29,7 +30,7 @@ const CallModal = () => {
       callFrameRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callState, roomUrl]);
+  }, [callState, roomUrl, token]);
 
   if (!callState || callState === "idle") return null;
 
