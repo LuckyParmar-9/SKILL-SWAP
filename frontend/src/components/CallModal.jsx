@@ -1,38 +1,48 @@
-import { useEffect, useRef } from "react";
-import DailyIframe from "@daily-co/daily-js";
+import { useEffect, useRef, useState } from "react";
 import { useCall } from "../context/CallContext";
 
 const CallModal = () => {
-  const { callState, callType, partner, roomUrl, token, error, acceptCall, rejectCall, cancelOutgoing, endCall } =
-    useCall();
-  const containerRef = useRef(null);
-  const callFrameRef = useRef(null);
+  const {
+    callState,
+    callType,
+    partner,
+    localStream,
+    remoteStream,
+    error,
+    acceptCall,
+    rejectCall,
+    cancelOutgoing,
+    endCall,
+    toggleMute,
+    toggleCamera,
+  } = useCall();
 
-  // Once both sides have accepted (callState === "active") AND we have our
-  // own personal token, embed Daily's call screen and join with that token.
-  // The token — not just the URL — is what the private room checks, so this
-  // is the point where caller and callee actually connect directly.
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+  const [muted, setMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+
   useEffect(() => {
-    if (callState !== "active" || !roomUrl || !token || !containerRef.current) return;
+    if (localVideoRef.current) localVideoRef.current.srcObject = localStream || null;
+  }, [localStream]);
 
-    const callFrame = DailyIframe.createFrame(containerRef.current, {
-      showLeaveButton: true,
-      iframeStyle: { width: "100%", height: "100%", border: "0", borderRadius: "12px" },
-    });
-    callFrameRef.current = callFrame;
-    callFrame.join({ url: roomUrl, token, startVideoOff: callType === "audio" });
-
-    // Fires when the local user clicks Daily's own "Leave" button
-    callFrame.on("left-meeting", () => endCall());
-
-    return () => {
-      callFrame.destroy();
-      callFrameRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callState, roomUrl, token]);
+  useEffect(() => {
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream || null;
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream || null;
+  }, [remoteStream]);
 
   if (!callState || callState === "idle") return null;
+
+  const handleMute = () => {
+    toggleMute();
+    setMuted((m) => !m);
+  };
+
+  const handleCamera = () => {
+    toggleCamera();
+    setCameraOff((c) => !c);
+  };
 
   return (
     <div className="call-overlay">
@@ -63,7 +73,46 @@ const CallModal = () => {
         {callState === "active" && (
           <>
             <h3>{callType === "video" ? "Video" : "Voice"} call with {partner?.name}</h3>
-            <div ref={containerRef} style={{ width: "100%", height: 480, marginTop: 14 }} />
+
+            {callType === "video" ? (
+              <div style={{ position: "relative", width: "100%", height: 480, marginTop: 14, background: "#1e293b", borderRadius: 12, overflow: "hidden" }}>
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    position: "absolute",
+                    bottom: 12,
+                    right: 12,
+                    width: 140,
+                    height: 100,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    border: "2px solid white",
+                  }}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="call-avatar" style={{ marginTop: 14 }}>{partner?.name?.[0]}</div>
+                <audio ref={remoteAudioRef} autoPlay />
+              </>
+            )}
+
+            <div className="call-actions" style={{ marginTop: 14 }}>
+              <button className="btn" onClick={handleMute}>{muted ? "Unmute" : "Mute"}</button>
+              {callType === "video" && (
+                <button className="btn" onClick={handleCamera}>{cameraOff ? "Camera On" : "Camera Off"}</button>
+              )}
+              <button className="btn btn-danger" onClick={endCall}>End Call</button>
+            </div>
           </>
         )}
 

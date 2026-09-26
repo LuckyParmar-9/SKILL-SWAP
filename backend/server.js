@@ -20,7 +20,6 @@ const dashboardRoutes = require("./routes/dashboard");
 const adminRoutes = require("./routes/admin");
 const reportRoutes = require("./routes/reports");
 const categoryRoutes = require("./routes/categories");
-const callRoutes = require("./routes/calls");
 
 connectDB();
 
@@ -79,7 +78,9 @@ app.use("/api/dashboard", dashboardRoutes); // US-38, US-39
 app.use("/api/admin", adminRoutes); // US-41 to US-45
 app.use("/api/reports", reportRoutes);
 app.use("/api/categories", categoryRoutes); // public: powers skill-add & search filter dropdowns
-app.use("/api/calls", callRoutes); // creates Daily.co rooms for voice/video calls
+// Note: /api/calls (Daily.co room creation) has been removed — voice/video
+// calls now use raw peer-to-peer WebRTC, signaled entirely through Socket.io
+// (see ./sockets/index.js), so no dedicated call route or API key is needed.
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 

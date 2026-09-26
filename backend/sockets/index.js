@@ -7,12 +7,14 @@ const conversationId = (a, b) => [String(a), String(b)].sort().join("_");
 
 // In-memory map of userId -> partnerUserId for users currently on a call, so we
 // can notify the other side if someone disconnects mid-call (tab closed, etc).
-// This is signaling-only bookkeeping; the actual audio/video never touches the
-// server — it flows through Daily.co's infrastructure, not through Socket.io.
+// This is signaling-only bookkeeping; the actual audio/video is now raw
+// peer-to-peer WebRTC — it never touches this server at all. The server's
+// only job is relaying the ring/accept/reject messages, plus the WebRTC
+// "handshake" messages (offer/answer/ICE candidates) needed to set up that
+// direct connection.
 const activeCalls = new Map();
 
 const initSockets = (io) => {
-  // Authenticate socket connection using JWT sent in handshake auth
   io.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
@@ -29,7 +31,6 @@ const initSockets = (io) => {
     socket.join(`user_${socket.userId}`);
     console.log(`Socket connected: user_${socket.userId}`);
 
-    // US-29: send message; US-30: receive message (delivered to receiver's room)
     socket.on("sendMessage", async ({ receiverId, content }) => {
       if (!receiverId || !content) return;
       const convoId = conversationId(socket.userId, receiverId);
@@ -59,46 +60,49 @@ const initSockets = (io) => {
       io.to(`user_${receiverId}`).emit("typing", { from: socket.userId });
     });
 
-    // --- Voice/video call signaling (ring / accept / reject only) --------
-    // The actual audio/video connection is Daily.co's job (see routes/calls.js
-    // and CallModal.jsx). The server only relays "someone is calling you" plus
-    // which room to join — it never sees or relays anyone's personal meeting
-    // token. Each side fetches its own token from the backend using its own
-    // login, so a leaked/relayed signaling message alone can't get anyone in.
-
-    // Caller -> callee: "someone is calling you, here's the room to join"
-    socket.on("call:invite", ({ toUserId, callType, fromName, roomUrl, roomName }) => {
+    // --- Call ring / accept / reject signaling ---------------------------
+    socket.on("call:invite", ({ toUserId, callType, fromName }) => {
       io.to(`user_${toUserId}`).emit("call:incoming", {
         fromUserId: socket.userId,
         fromName,
         callType, // "audio" | "video"
-        roomUrl,
-        roomName,
       });
     });
 
-    // Caller cancels before the callee answers
     socket.on("call:cancel", ({ toUserId }) => {
       io.to(`user_${toUserId}`).emit("call:cancelled", { fromUserId: socket.userId });
     });
 
-    // Callee accepts -> tell the caller to join the Daily room too
     socket.on("call:accept", ({ toUserId }) => {
       activeCalls.set(socket.userId, toUserId);
       activeCalls.set(toUserId, socket.userId);
       io.to(`user_${toUserId}`).emit("call:accepted", { fromUserId: socket.userId });
     });
 
-    // Callee declines
     socket.on("call:reject", ({ toUserId }) => {
       io.to(`user_${toUserId}`).emit("call:rejected", { fromUserId: socket.userId });
     });
 
-    // Either side hangs up (or clicks Daily's own "Leave" button)
     socket.on("call:end", ({ toUserId }) => {
       io.to(`user_${toUserId}`).emit("call:ended", { fromUserId: socket.userId });
       activeCalls.delete(socket.userId);
       activeCalls.delete(toUserId);
+    });
+
+    // --- Raw WebRTC handshake relay ---------------------------------------
+    // The server just forwards these blind — it never inspects or stores
+    // them. This is the "signaling channel" every WebRTC app needs; the
+    // actual audio/video never flows through here.
+    socket.on("webrtc:offer", ({ toUserId, sdp }) => {
+      io.to(`user_${toUserId}`).emit("webrtc:offer", { fromUserId: socket.userId, sdp });
+    });
+
+    socket.on("webrtc:answer", ({ toUserId, sdp }) => {
+      io.to(`user_${toUserId}`).emit("webrtc:answer", { fromUserId: socket.userId, sdp });
+    });
+
+    socket.on("webrtc:ice-candidate", ({ toUserId, candidate }) => {
+      io.to(`user_${toUserId}`).emit("webrtc:ice-candidate", { fromUserId: socket.userId, candidate });
     });
 
     socket.on("disconnect", () => {
