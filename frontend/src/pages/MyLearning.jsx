@@ -48,7 +48,14 @@ const MyLearning = () => {
             <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
               <div className="list-card-main">
                 <h4>{b.listing?.skill}</h4>
-                <p>With {b.provider?.name} · {b.slot?.date} {b.slot?.startTime}-{b.slot?.endTime}</p>
+                <p>
+                  With {b.provider?.name} ·{" "}
+                  {b.slot?.date
+                    ? `${b.slot.date} ${b.slot.startTime}-${b.slot.endTime}`
+                    : b.status === "confirmed" || b.status === "completed"
+                    ? "Waiting for provider to schedule a time"
+                    : "Time to be scheduled after payment"}
+                </p>
                 <p>
                   Price: ₹{b.price}
                   {" · "}

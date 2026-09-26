@@ -7,8 +7,8 @@ const PaidListingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [listing, setListing] = useState(null);
-  const [selectedSlot, setSelectedSlot] = useState(null);
   const [requested, setRequested] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.get(`/paid-listings/${id}`).then((res) => setListing(res.data));
@@ -16,13 +16,15 @@ const PaidListingDetail = () => {
 
   if (!listing) return <div className="loading">Loading listing...</div>;
 
-  const availableSlots = listing.slots.filter((s) => !s.isBooked); // US-25
-
   const requestBooking = async () => {
-    if (!selectedSlot) return;
-    const { data } = await api.post("/bookings", { listingId: listing._id, slotId: selectedSlot }); // US-19
-    setRequested(true);
-    setTimeout(() => navigate(`/my-learning`), 1200);
+    setError("");
+    try {
+      await api.post("/bookings", { listingId: listing._id }); // US-19
+      setRequested(true);
+      setTimeout(() => navigate(`/my-learning`), 1200);
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not send the request");
+    }
   };
 
   return (
@@ -43,33 +45,21 @@ const PaidListingDetail = () => {
       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
-        <h3>Available time slots (US-25)</h3>
-        {availableSlots.length === 0 && <p className="empty-state">No slots available right now.</p>}
-        <div className="skill-list">
-          {availableSlots.map((s) => (
-            <button
-              key={s._id}
-              className={`chip ${selectedSlot === s._id ? "" : ""}`}
-              style={{
-                border: "none",
-                cursor: "pointer",
-                background: selectedSlot === s._id ? "var(--pista-dark)" : "var(--pista-light)",
-                color: selectedSlot === s._id ? "white" : "var(--pista-darker)",
-              }}
-              onClick={() => setSelectedSlot(s._id)}
-            >
-              {s.date} · {s.startTime}-{s.endTime}
-            </button>
-          ))}
-        </div>
+        <h3>How this works</h3>
+        <p style={{ color: "var(--text-muted)" }}>
+          Send a request to {listing.provider?.name}. Once they accept and you complete your first payment,
+          they'll schedule the exact session date and time with you.
+        </p>
 
         {requested ? (
           <p style={{ color: "var(--pista-darker)", marginTop: 16 }}>Request sent! Redirecting to My Learning...</p>
         ) : (
-          <button className="btn btn-primary" style={{ marginTop: 16 }} disabled={!selectedSlot} onClick={requestBooking}>
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={requestBooking}>
             Request This Session
           </button>
         )}
+
+        {error && <p className="form-error" style={{ marginTop: 12 }}>{error}</p>}
       </div>
     </div>
   );
