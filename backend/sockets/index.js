@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const Message = require("../models/Message");
 const Notification = require("../models/Notification");
+const User = require("../models/User");
 
 const conversationId = (a, b) => [String(a), String(b)].sort().join("_");
 
@@ -39,8 +40,13 @@ const initSockets = (io) => {
         content,
       });
 
-      io.to(`user_${receiverId}`).emit("receiveMessage", message);
-      socket.emit("messageSent", message);
+      // Include the sender's display name so the receiver's global "new message"
+      // toast (shown on any page, not just the Messages screen) can show who it's from.
+      const senderUser = await User.findById(socket.userId).select("name");
+      const payload = { ...message.toObject(), senderName: senderUser?.name || "Someone" };
+
+      io.to(`user_${receiverId}`).emit("receiveMessage", payload);
+      socket.emit("messageSent", payload);
 
       const notification = await Notification.create({
         user: receiverId,
@@ -55,16 +61,18 @@ const initSockets = (io) => {
       io.to(`user_${receiverId}`).emit("typing", { from: socket.userId });
     });
 
-    // --- WebRTC voice/video call signaling -------------------------------
-    // The server only relays these small JSON messages between the two
-    // participants' rooms; it never sees or touches the actual call media.
+    // --- Voice/video call signaling (ring / accept / reject only) --------
+    // The actual audio/video connection is Daily.co's job now (see routes/calls.js
+    // and CallModal.jsx) — the server here only relays "someone is calling you"
+    // and the Daily room URL to join, never any call media itself.
 
-    // Caller -> callee: "someone is calling you"
-    socket.on("call:invite", ({ toUserId, callType, fromName }) => {
+    // Caller -> callee: "someone is calling you, here's the room to join"
+    socket.on("call:invite", ({ toUserId, callType, fromName, roomUrl }) => {
       io.to(`user_${toUserId}`).emit("call:incoming", {
         fromUserId: socket.userId,
         fromName,
         callType, // "audio" | "video"
+        roomUrl,
       });
     });
 
@@ -73,7 +81,7 @@ const initSockets = (io) => {
       io.to(`user_${toUserId}`).emit("call:cancelled", { fromUserId: socket.userId });
     });
 
-    // Callee accepts -> tell the caller to start the WebRTC offer/answer exchange
+    // Callee accepts -> tell the caller to join the Daily room too
     socket.on("call:accept", ({ toUserId }) => {
       activeCalls.set(socket.userId, toUserId);
       activeCalls.set(toUserId, socket.userId);
@@ -85,18 +93,7 @@ const initSockets = (io) => {
       io.to(`user_${toUserId}`).emit("call:rejected", { fromUserId: socket.userId });
     });
 
-    // WebRTC SDP offer/answer and ICE candidate relay
-    socket.on("call:offer", ({ toUserId, sdp }) => {
-      io.to(`user_${toUserId}`).emit("call:offer", { fromUserId: socket.userId, sdp });
-    });
-    socket.on("call:answer", ({ toUserId, sdp }) => {
-      io.to(`user_${toUserId}`).emit("call:answer", { fromUserId: socket.userId, sdp });
-    });
-    socket.on("call:ice-candidate", ({ toUserId, candidate }) => {
-      io.to(`user_${toUserId}`).emit("call:ice-candidate", { fromUserId: socket.userId, candidate });
-    });
-
-    // Either side hangs up
+    // Either side hangs up (or clicks Daily's own "Leave" button)
     socket.on("call:end", ({ toUserId }) => {
       io.to(`user_${toUserId}`).emit("call:ended", { fromUserId: socket.userId });
       activeCalls.delete(socket.userId);

@@ -1,30 +1,41 @@
 import { useEffect, useRef } from "react";
+import DailyIframe from "@daily-co/daily-js";
 import { useCall } from "../context/CallContext";
 
 const CallModal = () => {
-  const {
-    callState, callType, partner, localStream, remoteStream, error,
-    acceptCall, rejectCall, cancelOutgoing, endCall, toggleMute, toggleVideo,
-  } = useCall();
+  const { callState, callType, partner, roomUrl, error, acceptCall, rejectCall, cancelOutgoing, endCall } = useCall();
+  const containerRef = useRef(null);
+  const callFrameRef = useRef(null);
 
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const remoteAudioRef = useRef(null);
-
+  // Once both sides have accepted (callState === "active"), embed Daily's own
+  // call screen pointed at the room the backend created. Daily's UI already
+  // includes mute/camera/leave controls, so we don't build our own.
   useEffect(() => {
-    if (localVideoRef.current) localVideoRef.current.srcObject = localStream || null;
-  }, [localStream]);
+    if (callState !== "active" || !roomUrl || !containerRef.current) return;
 
-  useEffect(() => {
-    if (callType === "video" && remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream || null;
-    if (callType === "audio" && remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream || null;
-  }, [remoteStream, callType]);
+    const callFrame = DailyIframe.createFrame(containerRef.current, {
+      url: roomUrl,
+      showLeaveButton: true,
+      iframeStyle: { width: "100%", height: "100%", border: "0", borderRadius: "12px" },
+    });
+    callFrameRef.current = callFrame;
+    callFrame.join({ startVideoOff: callType === "audio" });
+
+    // Fires when the local user clicks Daily's own "Leave" button
+    callFrame.on("left-meeting", () => endCall());
+
+    return () => {
+      callFrame.destroy();
+      callFrameRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callState, roomUrl]);
 
   if (!callState || callState === "idle") return null;
 
   return (
     <div className="call-overlay">
-      <div className="call-box">
+      <div className="call-box" style={callState === "active" ? { width: "min(900px, 90vw)" } : {}}>
         {callState === "incoming" && (
           <>
             <div className="call-avatar">{partner?.name?.[0]}</div>
@@ -48,26 +59,10 @@ const CallModal = () => {
           </>
         )}
 
-        {(callState === "connecting" || callState === "active") && (
+        {callState === "active" && (
           <>
             <h3>{callType === "video" ? "Video" : "Voice"} call with {partner?.name}</h3>
-            {callState === "connecting" && <p>Connecting...</p>}
-
-            {callType === "video" ? (
-              <div className="call-video-grid">
-                <video ref={remoteVideoRef} autoPlay playsInline className="call-video remote" />
-                <video ref={localVideoRef} autoPlay playsInline muted className="call-video local" />
-              </div>
-            ) : (
-              <div className="call-avatar" style={{ width: 90, height: 90, fontSize: 34 }}>{partner?.name?.[0]}</div>
-            )}
-            <audio ref={remoteAudioRef} autoPlay />
-
-            <div className="call-actions">
-              <button className="btn btn-outline" onClick={toggleMute}>🎙 Mute/Unmute</button>
-              {callType === "video" && <button className="btn btn-outline" onClick={toggleVideo}>📷 Camera On/Off</button>}
-              <button className="btn btn-danger" onClick={endCall}>End Call</button>
-            </div>
+            <div ref={containerRef} style={{ width: "100%", height: 480, marginTop: 14 }} />
           </>
         )}
 

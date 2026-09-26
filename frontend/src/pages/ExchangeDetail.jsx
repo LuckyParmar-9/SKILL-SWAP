@@ -36,7 +36,7 @@ const ExchangeDetail = () => {
       <div className="card">
         <p><strong>You offer:</strong> {exchange.requesterSkill}</p>
         <p><strong>You receive:</strong> {exchange.receiverSkill}</p>
-        <p><strong>With:</strong> {other.name} ({other.email})</p>
+        <p><strong>With:</strong> {other.name}</p>
         <p><strong>Status:</strong> <span className={`status-pill status-${exchange.status}`}>{exchange.status}</span></p>
         {exchange.message && <p><strong>Message:</strong> {exchange.message}</p>}
         <Link className="btn btn-outline btn-small" to={`/messages/${other._id}`}>Message {other.name}</Link>
