@@ -15,6 +15,11 @@ const Messages = () => {
   const [activeUser, setActiveUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
+  // true/false once known; null = still checking. Defaults open-ish so a
+  // free skill-swap conversation never sits there looking "locked" while
+  // this loads — it only ever flips to false for an actual unpaid booking.
+  const [gateOpen, setGateOpen] = useState(true);
+  const [gateReason, setGateReason] = useState("");
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -25,6 +30,9 @@ const Messages = () => {
     if (!userId) return;
     api.get(`/messages/${userId}`).then((res) => setMessages(res.data));
     api.get(`/users/${userId}`).then((res) => setActiveUser(res.data.user));
+
+    setGateReason("");
+    api.get(`/messages/${userId}/access`).then((res) => setGateOpen(res.data.open));
   }, [userId]);
 
   useEffect(() => {
@@ -34,11 +42,21 @@ const Messages = () => {
         setMessages((prev) => [...prev, msg]);
       }
     };
+    // If the server rejected a send because payment hasn't cleared, this is
+    // the safety net (the /access check above should normally catch it first).
+    const handleBlocked = ({ receiverId, reason }) => {
+      if (receiverId === userId) {
+        setGateOpen(false);
+        setGateReason(reason);
+      }
+    };
     socket.on("receiveMessage", handler);
     socket.on("messageSent", handler);
+    socket.on("messageBlocked", handleBlocked);
     return () => {
       socket.off("receiveMessage", handler);
       socket.off("messageSent", handler);
+      socket.off("messageBlocked", handleBlocked);
     };
   }, [socket, userId]);
 
@@ -48,7 +66,7 @@ const Messages = () => {
 
   const send = (e) => {
     e.preventDefault();
-    if (!text.trim() || !userId) return;
+    if (!text.trim() || !userId || !gateOpen) return;
     if (socket) {
       socket.emit("sendMessage", { receiverId: userId, content: text }); // US-29
     } else {
@@ -86,20 +104,38 @@ const Messages = () => {
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
                     className="btn btn-outline btn-small"
-                    disabled={callState !== "idle"}
+                    disabled={callState !== "idle" || !gateOpen}
+                    title={!gateOpen ? "Available once the first payment is completed" : undefined}
                     onClick={() => startCall(userId, activeUser?.name, "audio")}
                   >
                     🎤 Voice Call
                   </button>
                   <button
                     className="btn btn-outline btn-small"
-                    disabled={callState !== "idle"}
+                    disabled={callState !== "idle" || !gateOpen}
+                    title={!gateOpen ? "Available once the first payment is completed" : undefined}
                     onClick={() => startCall(userId, activeUser?.name, "video")}
                   >
                     📹 Video Call
                   </button>
                 </div>
               </div>
+
+              {!gateOpen && (
+                <div
+                  style={{
+                    background: "#fff3cd",
+                    color: "#7a5b00",
+                    padding: "10px 14px",
+                    fontSize: 14,
+                    borderBottom: "1px solid var(--pista-light)",
+                  }}
+                >
+                  {gateReason ||
+                    "Messaging and calling will open once the first payment for this booking is completed."}
+                </div>
+              )}
+
               <div className="chat-messages">
                 {messages.map((m) => (
                   <div key={m._id} className={`msg-bubble ${String(m.sender) === String(user._id) || m.sender?._id === user._id ? "msg-mine" : "msg-theirs"}`}>
@@ -109,8 +145,13 @@ const Messages = () => {
                 <div ref={bottomRef} />
               </div>
               <form className="chat-input" onSubmit={send}>
-                <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type a message..." />
-                <button className="btn btn-primary btn-small">Send</button>
+                <input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder={gateOpen ? "Type a message..." : "Locked until first payment is completed"}
+                  disabled={!gateOpen}
+                />
+                <button className="btn btn-primary btn-small" disabled={!gateOpen}>Send</button>
               </form>
             </>
           )}

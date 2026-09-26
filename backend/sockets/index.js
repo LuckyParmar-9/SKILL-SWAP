@@ -2,12 +2,13 @@ const jwt = require("jsonwebtoken");
 const Message = require("../models/Message");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
+const isPaymentGateOpen = require("../utils/paymentGate");
 
 const conversationId = (a, b) => [String(a), String(b)].sort().join("_");
 
 // In-memory map of userId -> partnerUserId for users currently on a call, so we
 // can notify the other side if someone disconnects mid-call (tab closed, etc).
-// This is signaling-only bookkeeping; the actual audio/video is now raw
+// This is signaling-only bookkeeping; the actual audio/video is raw
 // peer-to-peer WebRTC — it never touches this server at all. The server's
 // only job is relaying the ring/accept/reject messages, plus the WebRTC
 // "handshake" messages (offer/answer/ICE candidates) needed to set up that
@@ -33,6 +34,18 @@ const initSockets = (io) => {
 
     socket.on("sendMessage", async ({ receiverId, content }) => {
       if (!receiverId || !content) return;
+
+      // Same gate as the REST route in routes/messages.js — blocks
+      // learner<->provider chat on a paid listing until first payment clears.
+      const gateOpen = await isPaymentGateOpen(socket.userId, receiverId);
+      if (!gateOpen) {
+        socket.emit("messageBlocked", {
+          receiverId,
+          reason: "You can message this user once your first payment for the booking is completed.",
+        });
+        return;
+      }
+
       const convoId = conversationId(socket.userId, receiverId);
       const message = await Message.create({
         conversationId: convoId,
@@ -61,7 +74,17 @@ const initSockets = (io) => {
     });
 
     // --- Call ring / accept / reject signaling ---------------------------
-    socket.on("call:invite", ({ toUserId, callType, fromName }) => {
+    socket.on("call:invite", async ({ toUserId, callType, fromName }) => {
+      // Same gate applied to calling — blocks ringing entirely rather than
+      // letting it ring and only failing later.
+      const gateOpen = await isPaymentGateOpen(socket.userId, toUserId);
+      if (!gateOpen) {
+        socket.emit("call:blocked", {
+          reason: "You can call this user once your first payment for the booking is completed.",
+        });
+        return;
+      }
+
       io.to(`user_${toUserId}`).emit("call:incoming", {
         fromUserId: socket.userId,
         fromName,

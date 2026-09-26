@@ -3,6 +3,7 @@ const router = express.Router();
 const Message = require("../models/Message");
 const { protect } = require("../middleware/auth");
 const notify = require("../utils/notify");
+const isPaymentGateOpen = require("../utils/paymentGate");
 
 const conversationId = (a, b) => [String(a), String(b)].sort().join("_");
 
@@ -15,6 +16,16 @@ router.get("/:userId", protect, async (req, res) => {
     { read: true }
   );
   res.json(messages);
+});
+
+// Whether this user can currently message/call the other user — lets the
+// frontend show the locked/paid state upfront instead of only finding out
+// after a send attempt fails. Returns { open: true } for any pair with no
+// paid-listing booking between them at all (e.g. a free skill-swap match),
+// so this never affects that flow.
+router.get("/:userId/access", protect, async (req, res) => {
+  const open = await isPaymentGateOpen(req.user._id, req.params.userId);
+  res.json({ open });
 });
 
 // List all conversations (latest message per contact) for inbox view
@@ -40,6 +51,17 @@ router.get("/", protect, async (req, res) => {
 router.post("/:userId", protect, async (req, res) => {
   const { content } = req.body;
   if (!content) return res.status(400).json({ message: "Content required" });
+
+  // Blocks messaging between a learner and provider until the first payment
+  // on their paid-listing booking has cleared. Has no effect on unrelated
+  // free skill-swap conversations — see utils/paymentGate.js for the rule.
+  const gateOpen = await isPaymentGateOpen(req.user._id, req.params.userId);
+  if (!gateOpen) {
+    return res.status(403).json({
+      message: "You can message this user once your first payment for the booking is completed.",
+    });
+  }
+
   const convoId = conversationId(req.user._id, req.params.userId);
   const message = await Message.create({
     conversationId: convoId,

@@ -20,7 +20,6 @@ router.post("/", protect, async (req, res) => {
     listing: listing._id,
     slot: { date: slot.date, startTime: slot.startTime, endTime: slot.endTime },
     price: listing.price,
-    payment: { amount: listing.price },
   });
 
   await notify(req.app.get("io"), listing.provider, {
@@ -100,14 +99,38 @@ router.put("/:id/cancel", protect, async (req, res) => {
   res.json(booking);
 });
 
-// Mark completed
+// Mark completed. Either party can still mark a booking completed as before
+// (e.g. for review-eligibility bookkeeping elsewhere in the app). What's new:
+// when the PROVIDER SPECIFICALLY marks a split-payment booking completed —
+// and only then — the final payment becomes payable. A learner marking their
+// own booking "completed" can never unlock the final payment themselves.
 router.put("/:id/complete", protect, async (req, res) => {
   const booking = await Booking.findById(req.params.id);
   if (!booking) return res.status(404).json({ message: "Not found" });
   const isParty = [String(booking.learner), String(booking.provider)].includes(String(req.user._id));
   if (!isParty) return res.status(403).json({ message: "Not authorized" });
+
+  const isProvider = String(booking.provider) === String(req.user._id);
+  const unlockingFinalPayment =
+    isProvider &&
+    booking.payment.plan === "split" &&
+    booking.payment.first.status === "paid" &&
+    booking.payment.second.status === "not_due";
+
   booking.status = "completed";
+  if (unlockingFinalPayment) {
+    booking.payment.second.status = "due";
+  }
   await booking.save();
+
+  if (unlockingFinalPayment) {
+    await notify(req.app.get("io"), booking.learner, {
+      type: "payment",
+      message: `Session marked complete — your final payment of ₹${booking.payment.second.amount} is now due.`,
+      link: `/my-learning`,
+    });
+  }
+
   res.json(booking);
 });
 

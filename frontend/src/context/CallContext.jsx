@@ -153,6 +153,8 @@ export const CallProvider = ({ children }) => {
     cleanup();
   }, [partner, socket, cleanup]);
 
+  const clearError = useCallback(() => setError(""), []);
+
   const toggleMute = useCallback(() => {
     if (!localStream) return;
     localStream.getAudioTracks().forEach((t) => (t.enabled = !t.enabled));
@@ -206,6 +208,14 @@ export const CallProvider = ({ children }) => {
 
     const onEnded = () => cleanup();
 
+    // Server refused to even ring the callee (payment gate closed). If we're
+    // the one who tried to call, show why and stop "ringing" — otherwise this
+    // would just hang on the "Calling..." screen forever.
+    const onBlocked = ({ reason }) => {
+      setError(reason || "This call isn't available right now");
+      cleanup();
+    };
+
     // Callee receives the caller's offer -> answer it
     const onOffer = async ({ sdp }) => {
       const pc = pcRef.current;
@@ -250,6 +260,7 @@ export const CallProvider = ({ children }) => {
     socket.on("call:accepted", onAccepted);
     socket.on("call:rejected", onRejected);
     socket.on("call:ended", onEnded);
+    socket.on("call:blocked", onBlocked);
     socket.on("webrtc:offer", onOffer);
     socket.on("webrtc:answer", onAnswer);
     socket.on("webrtc:ice-candidate", onIceCandidate);
@@ -260,6 +271,7 @@ export const CallProvider = ({ children }) => {
       socket.off("call:accepted", onAccepted);
       socket.off("call:rejected", onRejected);
       socket.off("call:ended", onEnded);
+      socket.off("call:blocked", onBlocked);
       socket.off("webrtc:offer", onOffer);
       socket.off("webrtc:answer", onAnswer);
       socket.off("webrtc:ice-candidate", onIceCandidate);
@@ -282,6 +294,7 @@ export const CallProvider = ({ children }) => {
         endCall,
         toggleMute,
         toggleCamera,
+        clearError,
       }}
     >
       {children}
