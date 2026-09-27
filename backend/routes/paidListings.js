@@ -6,7 +6,7 @@ const { protect, verifiedExpertOnly } = require("../middleware/auth");
 // US-23/US-24: Provider creates a paid learning listing (details + price).
 // Only accounts registered as "expert" AND admin-verified can create listings.
 router.post("/", protect, verifiedExpertOnly, async (req, res) => {
-  const { skill, category, description, price, duration } = req.body;
+  const { skill, category, subCategory, level, mode, language, description, price, duration } = req.body;
   if (!skill || !description || price === undefined) {
     return res.status(400).json({ message: "skill, description and price are required" });
   }
@@ -14,6 +14,10 @@ router.post("/", protect, verifiedExpertOnly, async (req, res) => {
     provider: req.user._id,
     skill,
     category,
+    subCategory,
+    level,
+    mode,
+    language,
     description,
     price,
     duration,
@@ -67,10 +71,14 @@ router.put("/:id", protect, async (req, res) => {
   if (String(listing.provider) !== String(req.user._id)) {
     return res.status(403).json({ message: "Not authorized" });
   }
-  const { skill, category, description, price, duration, isActive } = req.body;
+  const { skill, category, subCategory, level, mode, language, description, price, duration, isActive } = req.body;
   Object.assign(listing, {
     skill: skill ?? listing.skill,
     category: category ?? listing.category,
+    subCategory: subCategory ?? listing.subCategory,
+    level: level ?? listing.level,
+    mode: mode ?? listing.mode,
+    language: language ?? listing.language,
     description: description ?? listing.description,
     price: price ?? listing.price,
     duration: duration ?? listing.duration,

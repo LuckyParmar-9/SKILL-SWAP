@@ -31,7 +31,13 @@ const PaidListingDetail = () => {
     <div className="page">
       <div className="card">
         <h2 style={{ margin: "0 0 6px" }}>{listing.skill}</h2>
-        <p style={{ color: "var(--text-muted)" }}>{listing.category} · {listing.duration} min session</p>
+        <p style={{ color: "var(--text-muted)" }}>
+          {listing.category}
+          {listing.subCategory && ` · ${listing.subCategory}`} · {listing.duration} min session
+        </p>
+        <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
+          {listing.level} · {listing.mode} · {listing.language}
+        </p>
         <p>{listing.description}</p>
         <p style={{ fontSize: 22, fontWeight: 800, color: "var(--pista-darker)" }}>₹{listing.price}</p>
 

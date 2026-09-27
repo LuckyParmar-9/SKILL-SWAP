@@ -52,6 +52,7 @@ const Navbar = () => {
               <Link to="/matches">Matches</Link>
               <Link to="/exchanges">Exchanges</Link>
               <Link to="/paid-providers">Paid Learning</Link>
+              <Link to="/my-learning">My Learning</Link>
               {user.role === "expert" && (
                 <Link to="/my-paid-listings">
                   My Listings

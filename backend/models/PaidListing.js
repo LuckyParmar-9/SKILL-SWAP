@@ -15,6 +15,22 @@ const paidListingSchema = new mongoose.Schema(
     provider: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     skill: { type: String, required: true },
     category: { type: String, default: "General" },
+    subCategory: { type: String, default: "" },
+    level: {
+      type: String,
+      enum: ["Beginner", "Intermediate", "Advanced", "Expert"],
+      default: "Beginner",
+    },
+    mode: {
+      type: String,
+      enum: ["Online Voice", "Online Video", "Offline"],
+      default: "Online Video",
+    },
+    language: {
+      type: String,
+      enum: ["Hindi", "English", "Hinglish"],
+      default: "English",
+    },
     description: { type: String, required: true }, // US-23
     price: { type: Number, required: true, min: 0 }, // US-24
     duration: { type: Number, default: 60 }, // minutes

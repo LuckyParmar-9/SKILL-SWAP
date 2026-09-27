@@ -25,6 +25,11 @@ const Exchanges = () => {
       <h1 className="page-title">Skill Exchanges</h1>
       <p className="page-sub">Manage exchange requests you've sent and received.</p>
 
+      <div className="tabs" style={{ marginBottom: 6 }}>
+        <span className="tab active">Free Exchanges</span>
+        <Link to="/my-learning" className="tab">Paid Learning Requests</Link>
+      </div>
+
       <div className="tabs">
         {["all", "pending", "active", "completed", "rejected", "cancelled"].map((f) => (
           <button key={f} className={`tab ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>{f}</button>
