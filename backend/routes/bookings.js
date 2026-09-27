@@ -35,6 +35,7 @@ router.get("/incoming", protect, async (req, res) => {
   const bookings = await Booking.find({ provider: req.user._id })
     .populate("learner", "name avatar")
     .populate("listing", "skill price")
+    .populate("scheduleProposal.proposedBy", "name")
     .sort("-createdAt");
   res.json(bookings);
 });
@@ -44,6 +45,7 @@ router.get("/mine", protect, async (req, res) => {
   const bookings = await Booking.find({ learner: req.user._id })
     .populate("provider", "name avatar")
     .populate("listing", "skill price")
+    .populate("scheduleProposal.proposedBy", "name")
     .sort("-createdAt");
   res.json(bookings);
 });
@@ -52,7 +54,8 @@ router.get("/:id", protect, async (req, res) => {
   const booking = await Booking.findById(req.params.id)
     .populate("provider", "name avatar")
     .populate("learner", "name avatar")
-    .populate("listing");
+    .populate("listing")
+    .populate("scheduleProposal.proposedBy", "name");
   if (!booking) return res.status(404).json({ message: "Not found" });
   res.json(booking);
 });
@@ -77,10 +80,11 @@ router.put("/:id/respond", protect, async (req, res) => {
   res.json(booking);
 });
 
-// Provider sets the session's actual date/time. Only allowed once the
-// booking has been accepted AND the learner's first payment has cleared
-// (status becomes "confirmed" the moment that happens — see payments.js).
-router.put("/:id/schedule", protect, async (req, res) => {
+// Either the learner or the provider can suggest a session date/time. Only
+// allowed once the booking is accepted AND the first payment has cleared.
+// Suggesting a new time always overwrites whatever proposal existed before —
+// this doubles as how someone "counter-suggests" a different time.
+router.put("/:id/propose-schedule", protect, async (req, res) => {
   const { date, startTime, endTime } = req.body;
   if (!date || !startTime || !endTime) {
     return res.status(400).json({ message: "date, startTime and endTime are required" });
@@ -88,20 +92,64 @@ router.put("/:id/schedule", protect, async (req, res) => {
 
   const booking = await Booking.findById(req.params.id);
   if (!booking) return res.status(404).json({ message: "Not found" });
-  if (String(booking.provider) !== String(req.user._id)) {
-    return res.status(403).json({ message: "Not authorized" });
-  }
+  const isParty = [String(booking.learner), String(booking.provider)].includes(String(req.user._id));
+  if (!isParty) return res.status(403).json({ message: "Not authorized" });
   if (booking.payment.first.status !== "paid") {
-    return res.status(400).json({ message: "The learner's first payment must clear before scheduling a time" });
+    return res.status(400).json({ message: "The first payment must clear before scheduling a time" });
   }
 
-  booking.slot = { date, startTime, endTime };
+  booking.scheduleProposal = {
+    date,
+    startTime,
+    endTime,
+    proposedBy: req.user._id,
+    status: "pending",
+  };
   await booking.save();
 
-  await notify(req.app.get("io"), booking.learner, {
+  const otherPartyId =
+    String(booking.learner) === String(req.user._id) ? booking.provider : booking.learner;
+  await notify(req.app.get("io"), otherPartyId, {
     type: "booking",
-    message: `Your session has been scheduled for ${date} at ${startTime}-${endTime}`,
-    link: `/my-learning`,
+    message: `${req.user.name} suggested a session time: ${date} at ${startTime}-${endTime}`,
+    link: `/exchanges`,
+  });
+
+  res.json(booking);
+});
+
+// The OTHER party (never the one who proposed it) accepts or declines the
+// current pending suggestion. Accepting copies it into the real `slot`.
+router.put("/:id/respond-schedule", protect, async (req, res) => {
+  const { action } = req.body; // "accept" | "reject"
+  const booking = await Booking.findById(req.params.id);
+  if (!booking) return res.status(404).json({ message: "Not found" });
+  const isParty = [String(booking.learner), String(booking.provider)].includes(String(req.user._id));
+  if (!isParty) return res.status(403).json({ message: "Not authorized" });
+
+  const proposal = booking.scheduleProposal;
+  if (!proposal || proposal.status !== "pending") {
+    return res.status(400).json({ message: "There's no pending time suggestion to respond to" });
+  }
+  if (String(proposal.proposedBy) === String(req.user._id)) {
+    return res.status(400).json({ message: "You can't accept or reject your own suggestion" });
+  }
+
+  if (action === "accept") {
+    booking.slot = { date: proposal.date, startTime: proposal.startTime, endTime: proposal.endTime };
+    booking.scheduleProposal.status = "accepted";
+  } else {
+    booking.scheduleProposal.status = "rejected";
+  }
+  await booking.save();
+
+  await notify(req.app.get("io"), proposal.proposedBy, {
+    type: "booking",
+    message:
+      action === "accept"
+        ? `Your suggested session time (${proposal.date} ${proposal.startTime}-${proposal.endTime}) was accepted.`
+        : `Your suggested session time was declined. Try suggesting another one.`,
+    link: `/exchanges`,
   });
 
   res.json(booking);

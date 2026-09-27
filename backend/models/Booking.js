@@ -16,6 +16,17 @@ const paymentLegSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const scheduleProposalSchema = new mongoose.Schema(
+  {
+    date: { type: String, default: "" },
+    startTime: { type: String, default: "" },
+    endTime: { type: String, default: "" },
+    proposedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    status: { type: String, enum: ["pending", "accepted", "rejected", null], default: null },
+  },
+  { _id: false }
+);
+
 const bookingSchema = new mongoose.Schema(
   {
     learner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -26,6 +37,10 @@ const bookingSchema = new mongoose.Schema(
       startTime: String,
       endTime: String,
     },
+    // The currently pending/last-answered suggestion from either side. Once
+    // accepted, its date/time gets copied into `slot` above (the source of
+    // truth everywhere else in the app already reads from `slot`).
+    scheduleProposal: { type: scheduleProposalSchema, default: () => ({}) },
     price: { type: Number, required: true },
     status: {
       type: String,
