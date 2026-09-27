@@ -41,6 +41,11 @@ const ProviderProfile = () => {
         <div className="avatar" style={{ width: 70, height: 70, fontSize: 26 }}>{provider.name?.[0]}</div>
         <div style={{ flex: 1 }}>
           <h2 style={{ margin: "0 0 4px" }}>{provider.name}</h2>
+          {(provider.age || provider.gender) && (
+            <p style={{ margin: "2px 0", color: "var(--text-muted)", fontSize: 14 }}>
+              {[provider.age, provider.gender].filter(Boolean).join(" · ")}
+            </p>
+          )}
           <p style={{ color: "var(--text-muted)" }}>{provider.location}</p>
           <Stars rating={provider.ratingAvg} count={provider.ratingCount} />
           <p style={{ marginTop: 8 }}>{provider.bio}</p>
