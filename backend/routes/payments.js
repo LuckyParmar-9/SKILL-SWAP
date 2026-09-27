@@ -40,18 +40,20 @@ router.post("/create-order", protect, async (req, res) => {
     if (booking.payment.first.status !== "paid") {
       leg = "first";
 
-      const { plan, splitPercent } = req.body;
+      const { plan, firstAmount } = req.body;
       if (!["full", "split"].includes(plan)) {
         return res.status(400).json({ message: "plan must be 'full' or 'split'" });
       }
       if (plan === "split") {
-        const pct = Number(splitPercent);
-        if (!pct || pct <= 0 || pct >= 100) {
-          return res.status(400).json({ message: "splitPercent must be a number between 1 and 99" });
+        const amt = Number(firstAmount);
+        if (!amt || amt <= 0 || amt >= booking.price) {
+          return res.status(400).json({
+            message: `firstAmount must be a number between 1 and ${booking.price - 1}`,
+          });
         }
-        booking.payment.splitPercent = pct;
-        booking.payment.first.amount = Math.round(booking.price * (pct / 100));
-        booking.payment.second.amount = booking.price - booking.payment.first.amount;
+        booking.payment.first.amount = amt;
+        booking.payment.second.amount = booking.price - amt;
+        booking.payment.splitPercent = Math.round((amt / booking.price) * 100); // stored for display only
         booking.payment.second.status = "not_due"; // unlocked later when provider marks session complete
       } else {
         booking.payment.first.amount = booking.price;

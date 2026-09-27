@@ -23,7 +23,7 @@ const BookingPay = () => {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [plan, setPlan] = useState("full"); // "full" | "split" — only matters before first payment
-  const [splitPercent, setSplitPercent] = useState(50);
+  const [firstAmount, setFirstAmount] = useState(""); // learner-entered rupee amount for the first installment
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,17 +38,22 @@ const BookingPay = () => {
   const secondNotDue = isSplit && booking.payment.second.status === "not_due";
   const fullyPaid = firstPaid && (!isSplit || booking.payment.second.status === "paid");
 
-  const firstPreviewAmount = plan === "split" ? Math.round(booking.price * (splitPercent / 100)) : booking.price;
-  const secondPreviewAmount = booking.price - firstPreviewAmount;
+  const parsedFirst = Number(firstAmount);
+  const validSplitAmount = plan === "split" && parsedFirst > 0 && parsedFirst < booking.price;
+  const secondPreviewAmount = plan === "split" && validSplitAmount ? booking.price - parsedFirst : null;
 
   const handlePay = async () => {
     setError("");
+    if (!firstPaid && plan === "split" && !validSplitAmount) {
+      setError(`Enter an amount between ₹1 and ₹${booking.price - 1} for the first installment`);
+      return;
+    }
     setPaying(true);
     try {
       const body = { bookingId: booking._id };
       if (!firstPaid) {
         body.plan = plan;
-        if (plan === "split") body.splitPercent = splitPercent;
+        if (plan === "split") body.firstAmount = parsedFirst;
       }
       const { data: order } = await api.post("/payments/create-order", body);
 
@@ -129,29 +134,37 @@ const BookingPay = () => {
             <div className="form-group">
               <label>
                 <input type="radio" name="plan" checked={plan === "split"} onChange={() => setPlan("split")} />
-                {" "}Pay in two parts
+                {" "}Pay in two custom installments
               </label>
             </div>
 
             {plan === "split" && (
               <div style={{ marginLeft: 24, marginBottom: 14 }}>
-                <label>First payment: {splitPercent}% now, {100 - splitPercent}% at the end</label>
-                <input
-                  type="range"
-                  min={1}
-                  max={99}
-                  value={splitPercent}
-                  onChange={(e) => setSplitPercent(Number(e.target.value))}
-                  style={{ width: "100%" }}
-                />
+                <div className="form-group">
+                  <label>First installment amount (₹)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={booking.price - 1}
+                    placeholder={`e.g. ${Math.round(booking.price / 2)}`}
+                    value={firstAmount}
+                    onChange={(e) => setFirstAmount(e.target.value)}
+                  />
+                </div>
                 <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
-                  Pay ₹{firstPreviewAmount} now · ₹{secondPreviewAmount} due once the session is marked completed
+                  {validSplitAmount
+                    ? `Pay ₹${parsedFirst} now · ₹${secondPreviewAmount} due once the session is marked completed`
+                    : `Enter any amount between ₹1 and ₹${booking.price - 1}`}
                 </p>
               </div>
             )}
 
-            <button className="btn btn-primary" disabled={paying} onClick={handlePay}>
-              {paying ? "Opening payment..." : `Pay ₹${firstPreviewAmount} Now`}
+            <button
+              className="btn btn-primary"
+              disabled={paying || (plan === "split" && !validSplitAmount)}
+              onClick={handlePay}
+            >
+              {paying ? "Opening payment..." : plan === "split" && validSplitAmount ? `Pay ₹${parsedFirst} Now` : plan === "full" ? `Pay ₹${booking.price} Now` : "Enter an amount"}
             </button>
           </>
         )}
