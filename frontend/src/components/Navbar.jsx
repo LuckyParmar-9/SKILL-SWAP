@@ -46,11 +46,24 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <div className="navbar-inner">
-        <Link to="/" className="brand">🌱 SkillSwap</Link>
-        <div className="nav-links">
-          {user ? (
-            <>
+      <div
+        className="navbar-inner"
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}
+      >
+        <Link to="/" className="brand" style={{ flexShrink: 0 }}>🌱 SkillSwap</Link>
+
+        {user ? (
+          <>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: 1,
+                gap: 18,
+                flexWrap: "wrap",
+              }}
+            >
               <Link to="/dashboard">Dashboard</Link>
               <Link to="/search">Find Skills</Link>
               <Link to="/matches">Matches</Link>
@@ -66,6 +79,9 @@ const Navbar = () => {
               <Link to="/messages">Messages</Link>
               <Link to="/profile">Profile</Link>
               {user.role === "admin" && <Link to="/admin">Admin</Link>}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
               <button className="linklike" onClick={openNotif} style={{ position: "relative" }}>
                 🔔{unread > 0 && <span className="badge">{unread}</span>}
               </button>
@@ -85,14 +101,14 @@ const Navbar = () => {
               <button className="btn btn-outline btn-small" onClick={() => { logout(); navigate("/"); }}>
                 Logout
               </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login">Login</Link>
-              <Link to="/register" className="btn btn-primary btn-small">Get Started</Link>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <Link to="/login">Login</Link>
+            <Link to="/register" className="btn btn-primary btn-small">Get Started</Link>
+          </div>
+        )}
       </div>
     </nav>
   );

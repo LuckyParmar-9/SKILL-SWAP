@@ -18,7 +18,7 @@ router.get("/", protect, async (req, res) => {
     _id: { $ne: me._id },
     status: "active",
     "offeredSkills.skill": { $in: wantedNames.map((n) => new RegExp(`^${n}$`, "i")) },
-  }).select("name avatar location bio offeredSkills wantedSkills ratingAvg ratingCount");
+  }).select("name avatar location bio age gender offeredSkills wantedSkills ratingAvg ratingCount");
 
   const matches = candidates.map((c) => {
     const theyOfferIWant = c.offeredSkills.filter((s) =>
