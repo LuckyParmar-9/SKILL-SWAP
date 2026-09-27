@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api";
 
 const AdminDashboard = () => {
@@ -90,6 +91,9 @@ const AdminDashboard = () => {
                   ) : (
                     <p style={{ color: "var(--text-muted)" }}>No certificate provided</p>
                   )}
+                  <Link to={`/admin/users/${ex._id}`} className="btn btn-outline btn-small" style={{ marginTop: 6, display: "inline-block" }}>
+                    View Full Profile
+                  </Link>
                 </div>
                 <span className={`status-pill status-${ex.expertProfile?.verificationStatus === "verified" ? "verified" : ex.expertProfile?.verificationStatus === "rejected" ? "rejected" : "pending"}`}>
                   {ex.expertProfile?.verificationStatus}
@@ -127,7 +131,8 @@ const AdminDashboard = () => {
                 <td>{u.email}</td>
                 <td>{u.role}</td>
                 <td><span className={`status-pill status-${u.status === "active" ? "active-account" : u.status}`}>{u.status}</span></td>
-                <td style={{ display: "flex", gap: 6 }}>
+                <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <Link to={`/admin/users/${u._id}`} className="btn btn-outline btn-small">View Profile</Link>
                   <button className="btn btn-outline btn-small" onClick={() => setUserStatus(u._id, "active")}>Activate</button>
                   <button className="btn btn-outline btn-small" onClick={() => setUserStatus(u._id, "suspended")}>Suspend</button>
                   <button className="btn btn-danger btn-small" onClick={() => setUserStatus(u._id, "blocked")}>Block</button>
@@ -210,7 +215,11 @@ const AdminDashboard = () => {
                 <td>{b.listing?.skill}</td>
                 <td>₹{b.price}</td>
                 <td><span className={`status-pill status-${b.status}`}>{b.status}</span></td>
-                <td><span className={`status-pill status-${b.payment?.status}`}>{b.payment?.status}</span></td>
+                <td>
+                  <span className={`status-pill status-${b.payment?.first?.status === "paid" ? "paid" : "unpaid"}`}>
+                    {b.payment?.first?.status === "paid" ? "paid" : "unpaid"}
+                  </span>
+                </td>
               </tr>
             ))}
             {bookings.length === 0 && <tr><td colSpan={6} className="empty-state">No bookings.</td></tr>}

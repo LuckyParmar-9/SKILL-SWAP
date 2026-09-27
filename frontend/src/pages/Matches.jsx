@@ -30,6 +30,12 @@ const Matches = () => {
             <div className="avatar">{m.user.name?.[0]}</div>
             <div className="list-card-main">
               <h4>{m.user.name} {m.isMutual && <span className="chip">🔁 Mutual match</span>}</h4>
+              {(m.user.age || m.user.gender) && (
+                <p style={{ margin: "2px 0", color: "var(--text-muted)", fontSize: 14 }}>
+                  {[m.user.age, m.user.gender].filter(Boolean).join(" · ")}
+                </p>
+              )}
+              {m.user.bio && <p style={{ margin: "2px 0", fontSize: 14 }}>{m.user.bio}</p>}
               <p>{m.user.location}</p>
               <Stars rating={m.user.ratingAvg} count={m.user.ratingCount} />
               <div className="skill-list" style={{ marginTop: 6 }}>

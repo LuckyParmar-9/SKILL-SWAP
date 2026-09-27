@@ -24,6 +24,8 @@ import MyLearning from "./pages/MyLearning";
 import Booking from "./pages/Booking";
 import Messages from "./pages/Messages";
 import AdminDashboard from "./pages/AdminDashboard";
+import BookingPay from "./pages/BookingPay";
+import AdminUserProfile from "./pages/AdminUserProfile";
 
 function App() {
   return (
@@ -56,6 +58,8 @@ function App() {
         <Route path="/messages/:userId" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
 
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/booking/:id" element={<BookingPay />} />
+        <Route path="/admin/users/:id" element={<AdminUserProfile />} />
 
         <Route path="*" element={<div className="page"><h2>404 — Page not found</h2></div>} />
       </Routes>

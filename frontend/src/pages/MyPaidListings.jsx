@@ -3,10 +3,24 @@ import { Link } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 
+const LEVELS = ["Beginner", "Intermediate", "Advanced", "Expert"];
+const MODES = ["Online Voice", "Online Video", "Offline"];
+const LANGUAGES = ["Hindi", "English", "Hinglish"];
+
 const MyPaidListings = () => {
   const { user } = useAuth();
   const [listings, setListings] = useState([]);
-  const [form, setForm] = useState({ skill: "", category: "", description: "", price: "", duration: 60 });
+  const [form, setForm] = useState({
+    skill: "",
+    category: "",
+    subCategory: "",
+    level: "Beginner",
+    mode: "Online Video",
+    language: "English",
+    description: "",
+    price: "",
+    duration: 60,
+  });
   const [slotForms, setSlotForms] = useState({});
   const [error, setError] = useState("");
 
@@ -22,7 +36,17 @@ const MyPaidListings = () => {
     setError("");
     try {
       await api.post("/paid-listings", form); // US-23, US-24 — requires verified expert
-      setForm({ skill: "", category: "", description: "", price: "", duration: 60 });
+      setForm({
+        skill: "",
+        category: "",
+        subCategory: "",
+        level: "Beginner",
+        mode: "Online Video",
+        language: "English",
+        description: "",
+        price: "",
+        duration: 60,
+      });
       load();
     } catch (err) {
       setError(err.response?.data?.message || "Could not create listing");
@@ -85,16 +109,44 @@ const MyPaidListings = () => {
         <h3>Create a new listing</h3>
         <fieldset disabled={!canPublish} style={{ border: "none", padding: 0, margin: 0 }}>
         <form onSubmit={createListing}>
+          <div className="form-group">
+            <label>Skill name</label>
+            <input required placeholder="e.g. Guitar" value={form.skill} onChange={(e) => setForm({ ...form, skill: e.target.value })} />
+          </div>
+
           <div className="grid-2">
-            <div className="form-group">
-              <label>Skill</label>
-              <input required value={form.skill} onChange={(e) => setForm({ ...form, skill: e.target.value })} />
-            </div>
             <div className="form-group">
               <label>Category</label>
               <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
             </div>
+            <div className="form-group">
+              <label>Sub-category</label>
+              <input value={form.subCategory} onChange={(e) => setForm({ ...form, subCategory: e.target.value })} />
+            </div>
           </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label>Your level</label>
+              <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })}>
+                {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Mode</label>
+              <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
+                {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Language</label>
+            <select value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })}>
+              {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+
           <div className="form-group">
             <label>Session details</label>
             <textarea required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -117,6 +169,9 @@ const MyPaidListings = () => {
       {listings.map((l) => (
         <div key={l._id} className="card" style={{ marginBottom: 16 }}>
           <h4>{l.skill} — ₹{l.price} / {l.duration} min</h4>
+          <p style={{ color: "var(--text-muted)" }}>
+            {l.category}{l.subCategory && ` · ${l.subCategory}`} · {l.level} · {l.mode} · {l.language}
+          </p>
           <p style={{ color: "var(--text-muted)" }}>{l.description}</p>
           <p><strong>Slots:</strong> {l.slots.length === 0 ? "None added" : l.slots.map((s) => `${s.date} ${s.startTime}${s.isBooked ? " (booked)" : ""}`).join(", ")}</p>
 

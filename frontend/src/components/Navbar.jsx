@@ -40,6 +40,10 @@ const Navbar = () => {
     }
   };
 
+  // Admin sees every role's nav links, not just admin-specific ones — useful
+  // for inspecting/testing the app the way any user type would experience it.
+  const showExpertLinks = user?.role === "expert" || user?.role === "admin";
+
   return (
     <nav className="navbar">
       <div className="navbar-inner">
@@ -52,13 +56,13 @@ const Navbar = () => {
               <Link to="/matches">Matches</Link>
               <Link to="/exchanges">Exchanges</Link>
               <Link to="/paid-providers">Paid Learning</Link>
-              {user.role === "expert" && (
+              {showExpertLinks && (
                 <Link to="/my-paid-listings">
                   My Listings
                   {user.expertProfile?.verificationStatus === "pending" && <span className="badge">!</span>}
                 </Link>
               )}
-              {user.role === "expert" && <Link to="/provider/requests">Requests</Link>}
+              {showExpertLinks && <Link to="/provider/requests">Requests</Link>}
               <Link to="/messages">Messages</Link>
               <Link to="/profile">Profile</Link>
               {user.role === "admin" && <Link to="/admin">Admin</Link>}
