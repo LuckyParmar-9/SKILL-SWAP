@@ -40,6 +40,71 @@ router.get("/incoming", protect, async (req, res) => {
   res.json(bookings);
 });
 
+// Provider's earnings summary: total collected, what's still pending, and a
+// transaction-by-transaction history. "Pending" here specifically means
+// money already committed (the learner made their first payment, so the
+// booking is real) but not yet fully collected — i.e. the second half of a
+// split-payment plan that hasn't been paid yet. It does NOT count bookings
+// nobody has paid anything on yet, since those aren't earnings, just requests.
+router.get("/earnings", protect, async (req, res) => {
+  const bookings = await Booking.find({ provider: req.user._id })
+    .populate("learner", "name")
+    .populate("listing", "skill")
+    .sort("-updatedAt");
+
+  let totalEarned = 0;
+  let pendingAmount = 0;
+  const transactions = [];
+  const pending = [];
+
+  bookings.forEach((b) => {
+    const skill = b.listing?.skill || "Untitled listing";
+    const learnerName = b.learner?.name || "Unknown learner";
+
+    if (b.payment.first.status === "paid") {
+      totalEarned += b.payment.first.amount;
+      transactions.push({
+        bookingId: b._id,
+        skill,
+        learner: learnerName,
+        leg: "first",
+        amount: b.payment.first.amount,
+        paymentId: b.payment.first.paymentId,
+        date: b.updatedAt,
+      });
+    }
+    if (b.payment.second.status === "paid") {
+      totalEarned += b.payment.second.amount;
+      transactions.push({
+        bookingId: b._id,
+        skill,
+        learner: learnerName,
+        leg: "second",
+        amount: b.payment.second.amount,
+        paymentId: b.payment.second.paymentId,
+        date: b.updatedAt,
+      });
+    }
+
+    const isSplit = b.payment.plan === "split";
+    const secondOutstanding = isSplit && b.payment.second.status !== "paid" && b.payment.first.status === "paid";
+    if (secondOutstanding) {
+      pendingAmount += b.payment.second.amount;
+      pending.push({
+        bookingId: b._id,
+        skill,
+        learner: learnerName,
+        amount: b.payment.second.amount,
+        status: b.payment.second.status, // "not_due" | "due"
+      });
+    }
+  });
+
+  transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  res.json({ totalEarned, pendingAmount, transactions, pending });
+});
+
 // Learner views their own bookings - also backs US-39
 router.get("/mine", protect, async (req, res) => {
   const bookings = await Booking.find({ learner: req.user._id })
