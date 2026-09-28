@@ -15,6 +15,8 @@ const StatusPill = ({ status, children }) => (
       whiteSpace: "nowrap",
       lineHeight: 1.4,
       textAlign: "center",
+      alignSelf: "center", // opts out of a flex parent's default align-items: stretch
+      flexShrink: 0, // never let it get squeezed narrower than its text needs
     }}
   >
     {children ?? status}

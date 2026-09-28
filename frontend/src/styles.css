@@ -278,7 +278,7 @@ input:focus, textarea:focus, select:focus {
 .list-card-main { flex: 1; min-width: 220px; }
 .list-card-main h4 { margin: 0 0 4px; color: var(--text-dark); }
 .list-card-main p { margin: 2px 0; color: var(--text-muted); font-size: 14px; }
-.list-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.list-card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 .status-pill {
   padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: capitalize;
