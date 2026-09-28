@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api";
+import StatusPill from "../components/StatusPill";
 
 const SkillCard = ({ s }) => (
   <div className="list-card" style={{ flexDirection: "column", alignItems: "stretch" }}>
@@ -37,10 +38,10 @@ const AdminUserProfile = () => {
             <h2 style={{ margin: 0 }}>{user.name}</h2>
             <p style={{ margin: "2px 0", color: "var(--text-muted)" }}>{user.email}</p>
           </div>
-          <span className={`status-pill status-${user.role}`}>{user.role}</span>
-          <span className={`status-pill status-${user.status === "active" ? "active-account" : user.status}`}>
+          <StatusPill status={user.role} />
+          <StatusPill status={user.status === "active" ? "active-account" : user.status}>
             {user.status}
-          </span>
+          </StatusPill>
         </div>
 
         <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
@@ -58,9 +59,7 @@ const AdminUserProfile = () => {
             <p><strong>Experience:</strong> {user.expertProfile.experience}</p>
             <p>
               <strong>Verification:</strong>{" "}
-              <span className={`status-pill status-${user.expertProfile.verificationStatus}`}>
-                {user.expertProfile.verificationStatus}
-              </span>
+              <StatusPill status={user.expertProfile.verificationStatus} />
             </p>
           </div>
         )}

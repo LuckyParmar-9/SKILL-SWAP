@@ -3,8 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useCall } from "../context/CallContext";
-
-const StatusPill = ({ status }) => <span className={`status-pill status-${status}`}>{status}</span>;
+import StatusPill from "../components/StatusPill";
 
 const ProviderRequests = () => {
   const { user } = useAuth();

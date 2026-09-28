@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
+import StatusPill from "../components/StatusPill";
 
 const AdminDashboard = () => {
   const [tab, setTab] = useState("experts");
@@ -95,9 +96,9 @@ const AdminDashboard = () => {
                     View Full Profile
                   </Link>
                 </div>
-                <span className={`status-pill status-${ex.expertProfile?.verificationStatus === "verified" ? "verified" : ex.expertProfile?.verificationStatus === "rejected" ? "rejected" : "pending"}`}>
+                <StatusPill status={ex.expertProfile?.verificationStatus === "verified" ? "verified" : ex.expertProfile?.verificationStatus === "rejected" ? "rejected" : "pending"}>
                   {ex.expertProfile?.verificationStatus}
-                </span>
+                </StatusPill>
               </div>
 
               {ex.expertProfile?.verificationStatus === "pending" && (
@@ -130,7 +131,7 @@ const AdminDashboard = () => {
                 <td>{u.name}</td>
                 <td>{u.email}</td>
                 <td>{u.role}</td>
-                <td><span className={`status-pill status-${u.status === "active" ? "active-account" : u.status}`}>{u.status}</span></td>
+                <td><StatusPill status={u.status === "active" ? "active-account" : u.status}>{u.status}</StatusPill></td>
                 <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <Link to={`/admin/users/${u._id}`} className="btn btn-outline btn-small">View Profile</Link>
                   <button className="btn btn-outline btn-small" onClick={() => setUserStatus(u._id, "active")}>Activate</button>
@@ -192,7 +193,7 @@ const AdminDashboard = () => {
                 <td>{r.reportedBy?.name}</td>
                 <td>{r.reportedUser?.name}</td>
                 <td>{r.reason}</td>
-                <td><span className={`status-pill status-${r.status === "pending" ? "pending" : "accepted"}`}>{r.status}</span></td>
+                <td><StatusPill status={r.status === "pending" ? "pending" : "accepted"}>{r.status}</StatusPill></td>
                 <td style={{ display: "flex", gap: 6 }}>
                   <button className="btn btn-outline btn-small" onClick={() => updateReportStatus(r._id, "reviewed")}>Mark Reviewed</button>
                   <button className="btn btn-primary btn-small" onClick={() => updateReportStatus(r._id, "resolved")}>Resolve</button>
@@ -214,11 +215,11 @@ const AdminDashboard = () => {
                 <td>{b.provider?.name}</td>
                 <td>{b.listing?.skill}</td>
                 <td>₹{b.price}</td>
-                <td><span className={`status-pill status-${b.status}`}>{b.status}</span></td>
+                <td><StatusPill status={b.status} /></td>
                 <td>
-                  <span className={`status-pill status-${b.payment?.first?.status === "paid" ? "paid" : "unpaid"}`}>
+                  <StatusPill status={b.payment?.first?.status === "paid" ? "paid" : "unpaid"}>
                     {b.payment?.first?.status === "paid" ? "paid" : "unpaid"}
-                  </span>
+                  </StatusPill>
                 </td>
               </tr>
             ))}

@@ -3,8 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useCall } from "../context/CallContext";
-
-const StatusPill = ({ status }) => <span className={`status-pill status-${status}`}>{status}</span>;
+import StatusPill from "../components/StatusPill";
 
 const FILTERS = ["all", "pending", "active", "completed", "rejected", "cancelled"];
 
@@ -180,9 +179,9 @@ const Exchanges = () => {
                       Price: ₹{b.price}
                       {" · "}
                       Payment:{" "}
-                      <span className={`status-pill status-${firstPaid ? "paid" : "unpaid"}`}>
+                      <StatusPill status={firstPaid ? "paid" : "unpaid"}>
                         {fullyPaid ? "fully paid" : firstPaid ? "first payment done" : "unpaid"}
-                      </span>
+                      </StatusPill>
                     </p>
                   </div>
                   <div className="list-card-actions">
@@ -195,7 +194,11 @@ const Exchanges = () => {
                       <Link className="btn btn-primary btn-small" to={`/booking/${b._id}`}>Pay Final Amount</Link>
                     )}
                     {firstPaid && isSplit && b.payment?.second?.status === "not_due" && (
-                      <span className="status-pill" title="Opens once the provider marks the session completed">
+                      <span
+                        className="status-pill"
+                        title="Opens once the provider marks the session completed"
+                        style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, whiteSpace: "nowrap" }}
+                      >
                         Final payment not due yet
                       </span>
                     )}

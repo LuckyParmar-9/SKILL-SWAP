@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
+import StatusPill from "../components/StatusPill";
 
 const Booking = () => {
   const { bookingId } = useParams();
@@ -119,12 +120,12 @@ const Booking = () => {
             : "Time to be scheduled after payment"}
         </p>
         <p style={{ fontSize: 24, fontWeight: 800, color: "var(--pista-darker)" }}>₹{booking.price}</p>
-        <p>Booking status: <span className={`status-pill status-${booking.status}`}>{booking.status}</span></p>
+        <p>Booking status: <StatusPill status={booking.status} /></p>
         <p>
           Payment status:{" "}
-          <span className={`status-pill status-${firstPaid ? "paid" : "unpaid"}`}>
+          <StatusPill status={firstPaid ? "paid" : "unpaid"}>
             {fullyPaid ? "fully paid" : firstPaid ? "first payment done" : "unpaid"}
-          </span>
+          </StatusPill>
         </p>
 
         {errorMsg && <div className="form-error">{errorMsg}</div>}
