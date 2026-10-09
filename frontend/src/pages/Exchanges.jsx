@@ -22,6 +22,12 @@ const Exchanges = () => {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
 
+  // Separate state for rating a free exchange, so it doesn't collide with
+  // the paid-booking rating state above when switching tabs.
+  const [ratingForExchange, setRatingForExchange] = useState(null);
+  const [exchangeRating, setExchangeRating] = useState(5);
+  const [exchangeComment, setExchangeComment] = useState("");
+
   const [scheduleDrafts, setScheduleDrafts] = useState({}); // { [bookingId]: { date, startTime, endTime } }
   const [showProposeFor, setShowProposeFor] = useState({}); // { [bookingId]: true }
 
@@ -47,7 +53,25 @@ const Exchanges = () => {
     });
     setRatingFor(null);
     setComment("");
+    setRating(5);
     loadBookings();
+  };
+
+  // Free exchanges are two-way, so "the person being rated" is simply
+  // whichever side of the exchange isn't me.
+  const submitExchangeRating = async (ex) => {
+    const iAmReceiver = String(ex.receiver._id) === String(user._id);
+    const other = iAmReceiver ? ex.requester : ex.receiver;
+    await api.post("/reviews", {
+      providerId: other._id,
+      type: "exchange",
+      refId: ex._id,
+      rating: exchangeRating,
+      comment: exchangeComment,
+    });
+    setRatingForExchange(null);
+    setExchangeComment("");
+    setExchangeRating(5);
   };
 
   const updateDraft = (bookingId, field, value) => {
@@ -113,27 +137,62 @@ const Exchanges = () => {
             const iAmReceiver = String(ex.receiver._id) === String(user._id);
             const other = iAmReceiver ? ex.requester : ex.receiver;
             return (
-              <div key={ex._id} className="list-card">
-                <div className="list-card-main">
-                  <h4>{ex.requesterSkill} ⇄ {ex.receiverSkill}</h4>
-                  <p>With {other.name}</p>
+              <div key={ex._id} className="list-card" style={{ flexDirection: "column", alignItems: "stretch" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                  <div className="list-card-main">
+                    <h4>{ex.requesterSkill} ⇄ {ex.receiverSkill}</h4>
+                    <p>With {other.name}</p>
+                  </div>
+                  <div className="list-card-actions">
+                    <StatusPill status={ex.status} />
+                    {ex.status === "pending" && iAmReceiver && (
+                      <>
+                        <button className="btn btn-primary btn-small" onClick={() => act(ex._id, "accept")}>Accept</button>
+                        <button className="btn btn-outline btn-small" onClick={() => act(ex._id, "reject")}>Reject</button>
+                      </>
+                    )}
+                    {ex.status === "active" && (
+                      <>
+                        <button className="btn btn-primary btn-small" onClick={() => act(ex._id, "complete")}>Mark Completed</button>
+                        <button className="btn btn-outline btn-small" onClick={() => act(ex._id, "cancel")}>Cancel</button>
+                      </>
+                    )}
+                    {ex.status === "completed" && (
+                      <button className="btn btn-outline btn-small" onClick={() => setRatingForExchange(ex._id)}>
+                        Rate {other.name?.split(" ")[0]}
+                      </button>
+                    )}
+                    <Link className="btn btn-outline btn-small" to={`/exchanges/${ex._id}`}>Details</Link>
+                  </div>
                 </div>
-                <div className="list-card-actions">
-                  <StatusPill status={ex.status} />
-                  {ex.status === "pending" && iAmReceiver && (
-                    <>
-                      <button className="btn btn-primary btn-small" onClick={() => act(ex._id, "accept")}>Accept</button>
-                      <button className="btn btn-outline btn-small" onClick={() => act(ex._id, "reject")}>Reject</button>
-                    </>
-                  )}
-                  {ex.status === "active" && (
-                    <>
-                      <button className="btn btn-primary btn-small" onClick={() => act(ex._id, "complete")}>Mark Completed</button>
-                      <button className="btn btn-outline btn-small" onClick={() => act(ex._id, "cancel")}>Cancel</button>
-                    </>
-                  )}
-                  <Link className="btn btn-outline btn-small" to={`/exchanges/${ex._id}`}>Details</Link>
-                </div>
+
+                {ratingForExchange === ex._id && (
+                  <div style={{ marginTop: 12, borderTop: "1px solid var(--pista-lighter)", paddingTop: 12 }}>
+                    <div className="form-group">
+                      <label>Rating</label>
+                      <select value={exchangeRating} onChange={(e) => setExchangeRating(Number(e.target.value))}>
+                        {[5, 4, 3, 2, 1].map((r) => <option key={r} value={r}>{r} stars</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Review</label>
+                      <textarea
+                        rows={2}
+                        value={exchangeComment}
+                        onChange={(e) => setExchangeComment(e.target.value)}
+                        placeholder={`How was learning from ${other.name}?`}
+                      />
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="btn btn-primary btn-small" onClick={() => submitExchangeRating(ex)}>
+                        Submit Rating & Review
+                      </button>
+                      <button className="btn btn-outline btn-small" onClick={() => setRatingForExchange(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -292,9 +351,17 @@ const Exchanges = () => {
                     </div>
                     <div className="form-group">
                       <label>Review (US-32)</label>
-                      <textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} />
+                      <textarea
+                        rows={2}
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        placeholder={`How was your session with ${b.provider?.name}?`}
+                      />
                     </div>
-                    <button className="btn btn-primary btn-small" onClick={() => submitRating(b)}>Submit Rating & Review</button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="btn btn-primary btn-small" onClick={() => submitRating(b)}>Submit Rating & Review</button>
+                      <button className="btn btn-outline btn-small" onClick={() => setRatingFor(null)}>Cancel</button>
+                    </div>
                   </div>
                 )}
               </div>
